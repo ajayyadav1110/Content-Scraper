@@ -1,0 +1,13 @@
+{
+  "name": "content-scraper",
+  "version": "1.0.0",
+  "description": "this content scraper for a shoping site",
+  "main": "scraper.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "no test"
+  },
+  "author": "",
+  "license": "ISC"
+}
