@@ -4,25 +4,117 @@
 //solution :use node.js to connect to  http://shirts4mike.com 's API to get all information to print out
 //Connect to the url API
 
-const https = require('https');
-const request=('http://nodejs.org/dist/index.json', (res)=>{
-console.log(res.statusCode);
-console.log("hello");
-//REad the data
-//Parse the data
-//Print the data 
-//require https module
+//for date and time purpose
+var moment = require('moment');
 
+//request to make http call
+var request = require('request');
+
+//cheerio for the use to traverse DOM
+var cheerio = require("cheerio");
+
+// json 2 csv for converting the scraped data into a CSV file.
+var json2csv = require('json2csv');
+
+//fs is for creating file and folders
+var fs = require('fs');
+
+
+//website for scrape
+var  url = "http://shirts4mike.com/";
+
+//function for handling errors
+ 
+var errorhandling = function (error) {
+console.log(error.message);
+console.log('The Scraper could not get the ' + url + ' it may be because of server down problem');
+
+//create new date for log file
+var logdate = new Date();
+
+//create message as a variable
+var errorlog = '[' + logdate + '] ' + error.message + '\n';
+//when the error occurs, log that to the error logger file
+fs.appendFile('scraper-error.log', errorlog, function (er) {
+  if (er) throw er;
+  console.log('There was an error,it has been logged to scraper-error.log');
 });
+};
 
 
 
-
-
-function printmessage(price,title,url,imageurl){
-const message='${price} has ${title} this ${url} this ${imageurl}';
-console.log(message);
+var allshirts = new Array();
+// header for csv
+var fields = ['Title', 'Price', 'ImageURL', 'url', 'Time'];
+request(url, function (error, response, body) {
+  if (!error) {
+    // use cheerio to traverse DOM
+    var $ = cheerio.load(body);
+    // find the path to the page with the shirts on it
+   
+    var shirtpath = $(".shirts > a").attr("href");
+    var shirtsurl = url + shirtpath
+      request(shirtsurl, function (error, response, body) {
+      if(!error) {
+        //use cheerio to traverse DOM
+        var $ = cheerio.load(body);
+    // total number of shirts on the page
+    var finished = $(".products > li > a").length;
+    $(".products > li > a").each(function (index) {
+      var urlshirt = ("http://shirts4mike.com/"+ $(this).attr("href"));
+      //make http request
+      request(urlshirt, function (error, response, body) {
+        if (!error) {
+          //load into cheero to enable DOM traversal
+       
+          var $ = cheerio.load(body);
+          //traverse the DOM to get the necessary info
+      
+       var title = $('body').find(".shirt-details > h1").text().slice(4); // slice to remove the price form the title
+       var price = $('body').find(".price").text();
+       var imageurl = $('.shirt-picture').find("img").attr("src");
+       // create JSON object for each shirt, formatting the details of the shirt into JSON to allow for conversion to CSV
+     
+       var shirtObject = {}
+       shirtObject.Title = title;
+       shirtObject.Price = price;
+       shirtObject.ImageURL = imageurl;
+       shirtObject.url = urlshirt;
+       shirtObject.Time = moment().format('MMMM Do YYYY, h:mm:ss a');
+       allshirts.push(shirtObject);
+       if (allshirts.length == finished) {
+         //get today's date courtesy of moment.js
+         var today = moment().format('YYYY[-]MM[-]DD')
+          // make a new data folder if one doesn't already exist
+          var dir = './data';
+          if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir);
+          }
+		   //turn the shirts JSON file into a shirts CSV file with today's date as a file name.
+ 
+         json2csv({ data: allshirts, fields: fields }, function(err, csv) {
+         if (err) console.log(err);
+         fs.writeFile( dir + "/" + today + '.csv', csv, function(err) {
+           if (err) throw err;
+           console.log('file is saved');
+         });
+       });
+       }
+       return allshirts;
+     }
+     else {
+       errorhandling(error);
+    }});
+    });
+  }
+   else {
+     errorhandling(error);
+   }
+ });
 }
+  else {
+    errorhandling(error);
+  }});
 
 
 
@@ -32,9 +124,6 @@ console.log(message);
 
 
 
-/*Create a scraper.js file that will contain your command line application. 
-Your project should also include a package.json file that includes your project’s dependencies. 
-The npm install command should install your dependencies.*/
 
 
 
@@ -43,21 +132,6 @@ The npm install command should install your dependencies.*/
 
 
 
-/*Program your scraper to check for a folder called ‘data’. 
-If the folder doesn’t exist, the scraper should create one. 
-If the folder does exist, the scraper should do nothing.*/
-
-
-
-
-
-
-/*Choose and use two third-party npm packages. One package should be used to scrape content from the site.
- The other package should create the CSV file. Be sure to research the best package to use 
- (see the project resources for a link to the video about how to choose a good npm package) 
-Both packages should meet the following requirements:
-At least 1,000 downloads
-Has been updated in the last six months*/
 
 
 
@@ -65,28 +139,17 @@ Has been updated in the last six months*/
 
 
 
-/*Program your scraper so that it visits the website http://shirts4mike.com and uses http://shirts4mike.com/shirts.php as single 
-entry point to scrape information for 8 tee-shirts from the site, without using any hard-coded urls like http://www.shirts4mike.com/shirt.php?id=101. 
-If you’re unsure of how to get started, try googling ‘node scraper’ to get a feel for what a scraper is and what it does.*/
-
-/*Scraping and Saving Data:
-The scraper should get the price, title, url and image url from the product page and save this information into a CSV file.
-The information should be stored in an CSV file that is named for the date it was created, e.g. 2016-11-21.csv.
-Assume that the the column headers in the CSV need to be in a certain order to be correctly entered into a database. They should be in this order: 
-Title, Price, ImageURL, URL, and Time
-The CSV file should be saved inside the ‘data’ folder.*/
-
-/*If your program is run twice, it should overwrite the data in the CSV file with the updated information.
-If http://shirts4mike.com is down, an error message describing the issue should appear in the console.
-The error should be human-friendly, such as “There’s been a 404 error. Cannot connect to the to http://shirts4mike.com.”
-To test and make sure the error message displays as expected, you can disable the wifi on your computer or device.*/
 
 
-/*Extra Credit
 
-To get an "exceeds" rating, you can expand on the project in the following ways:
-2 steps
-Edit your package.json file so that your program runs when the npm start command is run.
-When an error occurs, log it to a file named scraper-error.log . 
-It should append to the bottom of the file with a time stamp and error e.g. 
-[Tue Feb 16 2016 10:02:12 GMT-0800 (PST)] <error message>*/
+
+
+
+
+
+
+
+
+
+
+
